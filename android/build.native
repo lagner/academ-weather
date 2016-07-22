@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+
+import os
+import argparse
+import subprocess
+from contextlib import contextmanager
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def run_command(cmd):
+    print("\n\t".join(cmd))
+    subprocess.check_call(cmd)
+    return
+    process = subprocess.Popen(cmd, universal_newlines=True,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT)
+    while True:
+        output = process.stdout.readline()
+        if output == '' and process.poll() is not None:
+            break
+        if output:
+            print(output)
+            rc = process.poll()
+            return rc
+
+
+@contextmanager
+def pushd(newDir):
+    previousDir = os.getcwd()
+    os.chdir(newDir)
+    yield
+    os.chdir(previousDir)
+
+
+def run_cmake(args):
+    cmd = (
+        'cmake',
+        '-DCMAKE_TOOLCHAIN_FILE=cmake/android.toolchain.cmake',
+        '-DANDROID_NDK={}'.format(args.ndk),
+        '-DCMAKE_BUILD_TYPE={}'.format(args.build_type),
+        '-DANDROID_ABI={}'.format(args.arch),
+        '-DCMAKE_PREFIX_PATH={}'.format(args.qt),
+        '-GNinja',
+        os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
+    )
+    run_command(cmd)
+
+
+def make(args):
+    cmd = (
+        'ninja',
+        # '-j3',
+    )
+    run_command(cmd)
+
+
+def make_install(args):
+    cmd = ('ls', )
+    run_command(cmd)
+
+
+def main(args):
+    args.build_dir = os.path.join(args.build_dir, args.arch)
+    if not os.path.exists(args.build_dir):
+        os.makedirs(args.build_dir)
+
+    with pushd(args.build_dir):
+        run_cmake(args)
+        make(args)
+        make_install(args)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-a', '--arch', default='armeabi-v7a',
+                        help="target arch")
+    parser.add_argument('--ndk', default=os.getenv('ANDROID_NDK', ""),
+                        help="path to android ndk. Default is ANDROID_NDK env variable")
+    parser.add_argument('--qt', default='',
+                        help="path to qt")
+
+    build_types = ('debug', 'release')
+    parser.add_argument('-t', '--build-type', choices=build_types, default=build_types[0],
+                        help="Build type. Default is {}".format(build_types[0]))
+
+    build_dir = "./app/build/cpp"
+    parser.add_argument('-b', '--build-dir', default=build_dir)
+
+    args = parser.parse_args()
+
+    exit(main(args))
