@@ -3,13 +3,15 @@
 import os
 import argparse
 import subprocess
+import re
 from contextlib import contextmanager
+from pprint import pprint
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def run_command(cmd):
-    print("\n\t".join(cmd))
+    print(" ".join(cmd))
     subprocess.check_call(cmd)
     return
     process = subprocess.Popen(cmd, universal_newlines=True,
@@ -33,7 +35,17 @@ def pushd(newDir):
     os.chdir(previousDir)
 
 
+def static_vars(**kwargs):
+    def decorate(func):
+        for k in kwargs:
+            setattr(func, k, kwargs[k])
+            return func
+    return decorate
+
+
 def run_cmake(args):
+    libdir = os.path.join(SCRIPT_DIR, 'app', 'libs', args.arch)
+
     cmd = (
         'cmake',
         '-DCMAKE_TOOLCHAIN_FILE=cmake/android.toolchain.cmake',
@@ -42,6 +54,7 @@ def run_cmake(args):
         '-DANDROID_ABI={}'.format(args.arch),
         '-DCMAKE_PREFIX_PATH={}'.format(args.qt),
         '-GNinja',
+        '-DCMAKE_INSTALL_PREFIX={}'.format(libdir),
         os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
     )
     run_command(cmd)
@@ -50,25 +63,68 @@ def run_cmake(args):
 def make(args):
     cmd = (
         'ninja',
-        # '-j3',
+        '-j3',
     )
     run_command(cmd)
 
 
 def make_install(args):
-    cmd = ('ls', )
+    cmd = ('ls',)
+    run_command(cmd)
+
+    cmd = ('ninja', 'install')
     run_command(cmd)
 
 
-def main(args):
-    args.build_dir = os.path.join(args.build_dir, args.arch)
-    if not os.path.exists(args.build_dir):
-        os.makedirs(args.build_dir)
+def read_elf_dependensies(args, filepath):
+    readelf = os.path.join(
+        args.ndk,
+        'toolchains',
+        '{}-{}'.format(args.toolchain_prefix, args.toolchain_version),
+        'prebuilt',
+        args.ndk_host,
+        'bin',
+        '{}-readelf'.format(args.tool_prefix),
+    )
+    cmd = (readelf, '-d', '-W', filepath)
 
-    with pushd(args.build_dir):
-        run_cmake(args)
-        make(args)
-        make_install(args)
+    output = subprocess.check_output(cmd, universal_newlines=True)
+
+    #  0x00000001 (NEEDED)   Shared library: [libQt5Network.so]
+    regexp = re.compile("^.*\(NEEDED\)\s+(Shared library:)\s+\[(?P<library>lib.*\.so)]\s*$")
+    libs = set()
+
+    for line in output.split('\n'):
+        m = regexp.search(line)
+        if m:
+            library = m.groupdict().get('library', None)
+            if library:
+                libs.add(library)
+    return libs
+
+
+def check(path, name):
+    if not os.path.exists(path):
+        raise Exception("{} was not found in {}".format(name, path))
+
+
+def main(args):
+    try:
+        args.build_dir = os.path.join(args.build_dir, args.arch)
+        if not os.path.exists(args.build_dir):
+            os.makedirs(args.build_dir)
+
+        check(args.qt)
+        check(args.ndk)
+
+        with pushd(args.build_dir):
+            run_cmake(args)
+            make(args)
+            # make_install(args)
+    except Exception as ex:
+        print("Exception: " + str(ex))
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
@@ -77,8 +133,8 @@ if __name__ == "__main__":
                         help="target arch")
     parser.add_argument('--ndk', default=os.getenv('ANDROID_NDK', ""),
                         help="path to android ndk. Default is ANDROID_NDK env variable")
-    parser.add_argument('--qt', default='',
-                        help="path to qt")
+
+    parser.add_argument('--qt', default='', help="path to qt")
 
     build_types = ('debug', 'release')
     parser.add_argument('-t', '--build-type', choices=build_types, default=build_types[0],
@@ -87,6 +143,11 @@ if __name__ == "__main__":
     build_dir = "./app/build/cpp"
     parser.add_argument('-b', '--build-dir', default=build_dir)
 
-    args = parser.parse_args()
+    # TODO: add variants for the folowing options
+    parser.add_argument('--toolchain-prefix', default='arm-linux-androideabi')
+    parser.add_argument('--tool-prefix', default='arm-linux-androideabi')
+    parser.add_argument('--toolchain-version', default='4.9')
+    parser.add_argument('--ndk-host', default='linux-x86_64')
 
+    args = parser.parse_args()
     exit(main(args))
