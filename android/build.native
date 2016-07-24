@@ -105,7 +105,7 @@ def read_elf_dependensies(args, filepath):
 
 def check(path, name):
     if not os.path.exists(path):
-        raise Exception("{} was not found in {}".format(name, path))
+        raise Exception('{} was not found in "{}"'.format(name, path))
 
 
 def main(args):
@@ -114,8 +114,8 @@ def main(args):
         if not os.path.exists(args.build_dir):
             os.makedirs(args.build_dir)
 
-        check(args.qt)
-        check(args.ndk)
+        check(args.qt, "Qt")
+        check(args.ndk, "Android NDK")
 
         with pushd(args.build_dir):
             run_cmake(args)
