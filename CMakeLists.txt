@@ -14,16 +14,15 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 aux_source_directory(src SRC_LIST)
 
+file(GLOB QML_LIST "qml/*.qml" "qml/*.js")
+
 set(RESOURCES qml.qrc)
-
 qt5_add_resources(RESOURCES_OBJ ${RESOURCES})
-
-message(STATUS ${CMAKE_MODULE_PATH})
 
 if(ANDROID)
     add_library(${PROJECT_NAME} SHARED ${SRC_LIST} ${RESOURCES_OBJ})
 else(ANDROID)
-    add_executable(${PROJECT_NAME} ${SRC_LIST} ${RESOURCES_OBJ})
+    add_executable(${PROJECT_NAME} ${SRC_LIST} ${QML_LIST} ${RESOURCES_OBJ})
 endif(ANDROID)
 
 target_link_libraries(${PROJECT_NAME} Qt5::Quick)
