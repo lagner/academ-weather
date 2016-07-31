@@ -83,3 +83,8 @@ ipch/
 *.vspx
 
 .directory
+
+# python parts
+__pycache__/
+*.py[cod]
+
