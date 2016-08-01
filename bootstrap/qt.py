@@ -27,9 +27,4 @@ def qmlimportscanner(qt_path, rootQmlDir):
     if err:
         raise Exception("qmlimportscanner error: " + str(err))
 
-    jsonObj = json.loads(out)
-
-    for module in jsonObj:
-        path = module.get('path', None)
-        if path:
-            print("++ " + path)
+    return json.loads(out)

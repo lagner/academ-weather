@@ -1,50 +1,42 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 import argparse
 import subprocess
 import re
-from contextlib import contextmanager
+import logging as log
 from pprint import pprint
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+ANDROID_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.abspath(os.path.join(ANDROID_DIR, '..'))
+
+sys.path.append(PROJECT_DIR)
+from bootstrap.qt import qmlimportscanner
+from bootstrap.utils import run, pushd, sync_dir
 
 
-def run_command(cmd):
-    print(" ".join(cmd))
-    subprocess.check_call(cmd)
-    return
-    process = subprocess.Popen(cmd, universal_newlines=True,
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.STDOUT)
-    while True:
-        output = process.stdout.readline()
-        if output == '' and process.poll() is not None:
-            break
-        if output:
-            print(output)
-            rc = process.poll()
-            return rc
+def prepare_qml_imports(args):
+    # run qmlimportscanner and copy qmls to ...
+    proj_qml_dir = os.path.join(PROJECT_DIR, 'qml')
+    imports = qmlimportscanner(args.qt, proj_qml_dir)
 
+    export_dir = os.path.join(ANDROID_DIR, 'assets', 'imports')
+    qt_qml_dir = os.path.join(args.qt, 'qml')
 
-@contextmanager
-def pushd(newDir):
-    previousDir = os.getcwd()
-    os.chdir(newDir)
-    yield
-    os.chdir(previousDir)
-
-
-def static_vars(**kwargs):
-    def decorate(func):
-        for k in kwargs:
-            setattr(func, k, kwargs[k])
-            return func
-    return decorate
+    for module in imports:
+        path = module.get('path', None)
+        if not path or not os.path.exists(path):
+            log.debug("path is empty" if not path else ("skip path " + path))
+            continue
+        # FIXME: ivalid path if type is directory
+        target = path.replace(qt_qml_dir, export_dir)
+        sync_dir(path, target)
 
 
 def run_cmake(args):
-    libdir = os.path.join(SCRIPT_DIR, 'app', 'libs', args.arch)
+    libdir = os.path.join(ANDROID_DIR, 'app', 'libs', args.arch)
 
     cmd = (
         'cmake',
@@ -55,9 +47,9 @@ def run_cmake(args):
         '-DCMAKE_PREFIX_PATH={}'.format(args.qt),
         '-GNinja',
         '-DCMAKE_INSTALL_PREFIX={}'.format(libdir),
-        os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
+        os.path.abspath(os.path.join(ANDROID_DIR, '..'))
     )
-    run_command(cmd)
+    run(cmd)
 
 
 def make(args):
@@ -65,15 +57,15 @@ def make(args):
         'ninja',
         '-j3',
     )
-    run_command(cmd)
+    run(cmd)
 
 
 def make_install(args):
     cmd = ('ls',)
-    run_command(cmd)
+    run(cmd)
 
     cmd = ('ninja', 'install')
-    run_command(cmd)
+    run(cmd)
 
 
 def read_elf_dependensies(args, filepath):
@@ -118,6 +110,7 @@ def main(args):
         check(args.ndk, "Android NDK")
 
         with pushd(args.build_dir):
+            prepare_qml_imports(args)
             run_cmake(args)
             make(args)
             # make_install(args)
@@ -128,9 +121,11 @@ def main(args):
 
 
 if __name__ == "__main__":
+    log.basicConfig(level=log.DEBUG)
     parser = argparse.ArgumentParser()
     parser.add_argument('-a', '--arch', default='armeabi-v7a',
                         help="target arch")
+    # TODO: get from local.properties
     parser.add_argument('--ndk', default=os.getenv('ANDROID_NDK', ""),
                         help="path to android ndk. Default is ANDROID_NDK env variable")
 
@@ -150,4 +145,5 @@ if __name__ == "__main__":
     parser.add_argument('--ndk-host', default='linux-x86_64')
 
     args = parser.parse_args()
+
     exit(main(args))
