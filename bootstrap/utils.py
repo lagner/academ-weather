@@ -65,3 +65,16 @@ def sync_dir(source, target, remove_extra=False):
         for extra in (set(tfiles) - set(files)):
             os.remove(extra)
         # FIXME: remove extra dirs
+
+
+def fs_walk(path):
+    for root, dirs, files in os.walk(path):
+        for filename in files:
+            yield os.path.join(root, filename)
+
+
+def filenames_filter(files, extensions):
+    for filename in files:
+        basename, ext = os.path.splitext(filename)
+        if ext in extensions:
+            yield filename

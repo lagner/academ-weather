@@ -8,13 +8,15 @@ import re
 import logging as log
 from pprint import pprint
 
+#FIXME: how to know library name?
+PROJECT_NAME = "academ-weather"
 
 ANDROID_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.abspath(os.path.join(ANDROID_DIR, '..'))
 
 sys.path.append(PROJECT_DIR)
 from bootstrap.qt import qmlimportscanner
-from bootstrap.utils import run, pushd, sync_dir
+from bootstrap.utils import run, pushd, sync_dir, sync_file, fs_walk, filenames_filter
 
 
 def prepare_qml_imports(args):
@@ -33,6 +35,32 @@ def prepare_qml_imports(args):
         # FIXME: ivalid path if type is directory
         target = path.replace(qt_qml_dir, export_dir)
         sync_dir(path, target)
+
+
+def prepare_qt_libs(args):
+    # first get qt dependencies from qml imports
+    qml_export_dir = os.path.join(ANDROID_DIR, 'assets', 'imports')
+    libs = filenames_filter(fs_walk(qml_export_dir), ('.so', ))
+
+    dependencies = set()
+
+    for lib in libs:
+        deps = qt_elf_dependencies(args, lib)
+        dependencies.update(deps)
+
+    # get all qt dependencies from target lib
+    libs_dir = os.path.join(ANDROID_DIR, 'libs', args.arch)
+
+    target = os.path.join(libs_dir, 'lib' + PROJECT_NAME + '.so')
+    if not os.path.exists(target):
+        raise Exception('target library is not exist in: ' + target)
+
+    dependencies.update(qt_elf_dependencies(args, target))
+    for lib in dependencies:
+        source_path = os.path.join(args.qt, 'lib', lib)
+        target_path = os.path.join(libs_dir, lib)
+        sync_file(source_path, target_path)
+    # FIXME: check qt libs recursively
 
 
 def run_cmake(args):
@@ -61,14 +89,22 @@ def make(args):
 
 
 def make_install(args):
-    cmd = ('ls',)
-    run(cmd)
-
     cmd = ('ninja', 'install')
     run(cmd)
 
 
-def read_elf_dependensies(args, filepath):
+def qt_elf_dependencies(args, filepath):
+    libs = read_elf_dependencies(args, filepath)
+    qt_libs = os.path.join(args.qt, 'lib')
+    extra_libs = set()
+    for lib in libs:
+        fullpath = os.path.join(qt_libs, lib)
+        if not os.path.exists(fullpath):
+            extra_libs.add(lib)
+    return libs - extra_libs
+
+
+def read_elf_dependencies(args, filepath):
     readelf = os.path.join(
         args.ndk,
         'toolchains',
@@ -110,10 +146,12 @@ def main(args):
         check(args.ndk, "Android NDK")
 
         with pushd(args.build_dir):
-            prepare_qml_imports(args)
             run_cmake(args)
             make(args)
-            # make_install(args)
+            make_install(args)
+            prepare_qml_imports(args)
+            prepare_qt_libs(args)
+
     except Exception as ex:
         print("Exception: " + str(ex))
         return 1
@@ -121,7 +159,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    log.basicConfig(level=log.DEBUG)
+    log.basicConfig(level=log.INFO)
     parser = argparse.ArgumentParser()
     parser.add_argument('-a', '--arch', default='armeabi-v7a',
                         help="target arch")
