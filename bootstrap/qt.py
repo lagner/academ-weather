@@ -6,6 +6,8 @@ import bootstrap.utils as utl
 
 _cd = os.path.dirname(os.path.abspath(__file__))
 
+ARCH = ('armeabi-v7a', 'x86', 'mips')
+
 
 def qmlimportscanner(qt_path, rootQmlDir):
     qmlis = os.path.join(qt_path, 'bin', 'qmlimportscanner')

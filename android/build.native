@@ -6,17 +6,20 @@ import argparse
 import subprocess
 import re
 import logging as log
-from pprint import pprint
 
-#FIXME: how to know library name?
+# FIXME: how to know library name?
 PROJECT_NAME = "academ-weather"
 
 ANDROID_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.abspath(os.path.join(ANDROID_DIR, '..'))
 
 sys.path.append(PROJECT_DIR)
-from bootstrap.qt import qmlimportscanner
+from bootstrap.qt import qmlimportscanner, ARCH
 from bootstrap.utils import run, pushd, sync_dir, sync_file, fs_walk, filenames_filter
+from bootstrap.configuration import init_config
+
+
+context = None
 
 
 def prepare_qml_imports(args):
@@ -24,7 +27,9 @@ def prepare_qml_imports(args):
     proj_qml_dir = os.path.join(PROJECT_DIR, 'qml')
     imports = qmlimportscanner(args.qt, proj_qml_dir)
 
-    export_dir = os.path.join(ANDROID_DIR, 'assets', 'imports')
+    export_dir = context.get('android', 'qml_imports')
+    log.debug("qml imports dir: " + export_dir)
+
     qt_qml_dir = os.path.join(args.qt, 'qml')
 
     for module in imports:
@@ -39,7 +44,7 @@ def prepare_qml_imports(args):
 
 def prepare_qt_libs(args):
     # first get qt dependencies from qml imports
-    qml_export_dir = os.path.join(ANDROID_DIR, 'assets', 'imports')
+    qml_export_dir = context.get('android', 'qml_imports')
     libs = filenames_filter(fs_walk(qml_export_dir), ('.so', ))
 
     dependencies = set()
@@ -49,7 +54,8 @@ def prepare_qt_libs(args):
         dependencies.update(deps)
 
     # get all qt dependencies from target lib
-    libs_dir = os.path.join(ANDROID_DIR, 'libs', args.arch)
+    libs_dir = context.get('android', 'libs_dir')
+    log.debug("libs dir: " + libs_dir)
 
     target = os.path.join(libs_dir, 'lib' + PROJECT_NAME + '.so')
     if not os.path.exists(target):
@@ -138,9 +144,18 @@ def check(path, name):
 
 def main(args):
     try:
+        global context
+        context = init_config(args)
+
         args.build_dir = os.path.join(args.build_dir, args.arch)
         if not os.path.exists(args.build_dir):
             os.makedirs(args.build_dir)
+
+        if not args.ndk:
+            args.ndk = context.get('default', 'ndk', fallback="")
+
+        if not args.qt:
+            args.qt = context.get('default', 'qt', fallback="")
 
         check(args.qt, "Qt")
         check(args.ndk, "Android NDK")
@@ -149,21 +164,24 @@ def main(args):
             run_cmake(args)
             make(args)
             make_install(args)
+
+        if args.prepare_qml:
             prepare_qml_imports(args)
+        if args.prepare_lib:
             prepare_qt_libs(args)
 
     except Exception as ex:
-        print("Exception: " + str(ex))
+        print("Error: " + str(ex))
         return 1
     return 0
 
 
 if __name__ == "__main__":
-    log.basicConfig(level=log.INFO)
+    log.basicConfig(level=log.DEBUG)
     parser = argparse.ArgumentParser()
-    parser.add_argument('-a', '--arch', default='armeabi-v7a',
-                        help="target arch")
-    # TODO: get from local.properties
+    parser.add_argument('-a', '--arch', choices=ARCH, default=ARCH[0],
+                        help="target arch. Default {}".format(ARCH[0]))
+
     parser.add_argument('--ndk', default=os.getenv('ANDROID_NDK', ""),
                         help="path to android ndk. Default is ANDROID_NDK env variable")
 
@@ -181,6 +199,8 @@ if __name__ == "__main__":
     parser.add_argument('--tool-prefix', default='arm-linux-androideabi')
     parser.add_argument('--toolchain-version', default='4.9')
     parser.add_argument('--ndk-host', default='linux-x86_64')
+    parser.add_argument('--prepare-qml', action="store_true")
+    parser.add_argument('--prepare-lib', action="store_true")
 
     args = parser.parse_args()
 
