@@ -28,5 +28,5 @@ endif(ANDROID)
 target_link_libraries(${PROJECT_NAME} Qt5::Quick)
 
 if(ANDROID)
-    install(TARGETS ${PROJECT_NAME} DESTINATION "${PROJECT_SOURCE_DIR}/android/libs/${ANDROID_ABI}")
+    install(TARGETS ${PROJECT_NAME} DESTINATION "${PROJECT_SOURCE_DIR}/android/app/libs/${ANDROID_ABI}")
 endif(ANDROID)
