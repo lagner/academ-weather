@@ -6,7 +6,6 @@ import argparse
 import subprocess
 import re
 import logging as log
-
 # FIXME: how to know library name?
 PROJECT_NAME = "academ-weather"
 
@@ -15,7 +14,7 @@ PROJECT_DIR = os.path.abspath(os.path.join(ANDROID_DIR, '..'))
 
 sys.path.append(PROJECT_DIR)
 import bootstrap.utils as utl
-from bootstrap.qt import ARCH, qmlimportscanner, qt_elf_dependencies
+from bootstrap.qt import ARCH, qmlimportscanner, qt_elf_dependencies, get_all_deps
 from bootstrap.utils import run, pushd, sync_dir, sync_file, fs_walk, filenames_filter
 from bootstrap.configuration import init_config
 
@@ -43,16 +42,6 @@ def prepare_qml_imports(args):
         sync_dir(path, target)
 
 
-def get_all_qt_deps(args, lib):
-    deps = qt_elf_dependencies(args, lib)
-    extra_deps = set()
-
-    for l in deps:
-        l_deps = qt_elf_dependencies(args, l)
-        extra_deps = l_deps - deps
-    pass
-
-
 def prepare_qt_libs(args):
     # first get qt dependencies from qml imports
     qml_export_dir = context.get('android', 'qml_imports')
@@ -61,8 +50,7 @@ def prepare_qt_libs(args):
     dependencies = set()
 
     for lib in libs:
-        deps = qt_elf_dependencies(args, lib)
-        dependencies.update(deps)
+        dependencies.update(get_all_deps(args, lib))
 
     # get all qt dependencies from target lib
     libs_dir = context.get('android', 'libs_dir')
@@ -72,17 +60,16 @@ def prepare_qt_libs(args):
     if not os.path.exists(target):
         raise Exception('target library is not exist in: ' + target)
 
-    dependencies.update(qt_elf_dependencies(args, target))
+    dependencies.update(get_all_deps(args, target))
 
     for lib in dependencies:
         source_path = os.path.join(args.qt, 'lib', lib)
         target_path = os.path.join(libs_dir, lib)
         sync_file(source_path, target_path)
-    # FIXME: check qt libs recursively
 
 
 def run_cmake(args):
-    libdir = os.path.join(ANDROID_DIR, 'app', 'libs', args.arch)
+    libdir = os.path.join(ANDROID_DIR, context.get('android', 'libs_dir'))
 
     cmd = (
         'cmake',
@@ -93,7 +80,7 @@ def run_cmake(args):
         '-DCMAKE_PREFIX_PATH={}'.format(args.qt),
         '-GNinja',
         '-DCMAKE_INSTALL_PREFIX={}'.format(libdir),
-        os.path.abspath(os.path.join(ANDROID_DIR, '..'))
+        PROJECT_DIR
     )
     run(cmd)
 
@@ -121,10 +108,6 @@ def main(args):
         global context
         context = init_config(args)
 
-        args.build_dir = os.path.join(args.build_dir, args.arch)
-        if not os.path.exists(args.build_dir):
-            os.makedirs(args.build_dir)
-
         if not args.ndk:
             args.ndk = context.get('default', 'ndk', fallback="")
 
@@ -134,7 +117,14 @@ def main(args):
         check(args.qt, "Qt")
         check(args.ndk, "Android NDK")
 
-        with pushd(args.build_dir):
+        build_dir = context.get('android', 'build_dir')
+        build_dir = os.path.join(ANDROID_DIR, build_dir)
+
+        if not os.path.exists(build_dir):
+            log.info("build dir was created: " + build_dir)
+            os.makedirs(build_dir)
+
+        with pushd(build_dir):
             run_cmake(args)
             make(args)
             make_install(args)
@@ -164,9 +154,6 @@ if __name__ == "__main__":
     build_types = ('debug', 'release')
     parser.add_argument('-t', '--build-type', choices=build_types, default=build_types[0],
                         help="Build type. Default is {}".format(build_types[0]))
-
-    build_dir = "./app/build/cpp"
-    parser.add_argument('-b', '--build-dir', default=build_dir)
 
     # TODO: add variants for the folowing options
     parser.add_argument('--toolchain-prefix', default='arm-linux-androideabi')

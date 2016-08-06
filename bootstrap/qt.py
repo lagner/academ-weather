@@ -73,3 +73,22 @@ def qt_elf_dependencies(args, filepath):
     return libs - extra_libs
 
 
+def get_all_deps(args, lib):
+    dependencies = set()
+    libs_to_check = qt_elf_dependencies(args, lib)
+
+    while libs_to_check:
+        lib = libs_to_check.pop()
+        dependencies.add(lib)
+
+        qt_libs = os.path.join(args.qt, 'lib')
+        fullpath = os.path.join(qt_libs, lib)
+        deps = qt_elf_dependencies(args, fullpath)
+
+        # libs in dependencies already checked
+        extra = deps - dependencies
+        libs_to_check.update(extra)
+
+    return dependencies
+
+# TODO: add method to get deps from libs collection

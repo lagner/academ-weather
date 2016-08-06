@@ -20,7 +20,9 @@ def init_config(args):
 
 
 def __read_default():
-    parser = configparser.ConfigParser()
+    parser = configparser.ConfigParser(
+        interpolation=configparser.ExtendedInterpolation()
+    )
 
     config_path = os.path.join(_cd, '..', 'config.cfg')
     if os.path.exists(config_path):
