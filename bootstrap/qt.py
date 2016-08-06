@@ -32,7 +32,8 @@ def qmlimportscanner(qt_path, rootQmlDir):
     return json.loads(out)
 
 
-def read_elf_dependensies(args, filepath):
+@utl.static_vars(pattern=None)
+def read_elf_dependencies(args, filepath):
     readelf = os.path.join(
         args.ndk,
         'toolchains',
@@ -47,13 +48,28 @@ def read_elf_dependensies(args, filepath):
     output = subprocess.check_output(cmd, universal_newlines=True)
 
     #  0x00000001 (NEEDED)   Shared library: [libQt5Network.so]
-    regexp = re.compile("^.*\(NEEDED\)\s+(Shared library:)\s+\[(?P<library>lib.*\.so)]\s*$")
+    if not read_elf_dependencies.pattern:
+        read_elf_dependencies.pattern = re.compile(
+            "^.*\(NEEDED\)\s+(Shared library:)\s+\[(?P<library>lib.*\.so)]\s*$")
     libs = set()
 
     for line in output.split('\n'):
-        m = regexp.search(line)
+        m = read_elf_dependencies.pattern.search(line)
         if m:
             library = m.groupdict().get('library', None)
             if library:
                 libs.add(library)
     return libs
+
+
+def qt_elf_dependencies(args, filepath):
+    libs = read_elf_dependencies(args, filepath)
+    qt_libs = os.path.join(args.qt, 'lib')
+    extra_libs = set()
+    for lib in libs:
+        fullpath = os.path.join(qt_libs, lib)
+        if not os.path.exists(fullpath):
+            extra_libs.add(lib)
+    return libs - extra_libs
+
+

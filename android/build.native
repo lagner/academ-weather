@@ -14,7 +14,8 @@ ANDROID_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.abspath(os.path.join(ANDROID_DIR, '..'))
 
 sys.path.append(PROJECT_DIR)
-from bootstrap.qt import qmlimportscanner, ARCH
+import bootstrap.utils as utl
+from bootstrap.qt import ARCH, qmlimportscanner, qt_elf_dependencies
 from bootstrap.utils import run, pushd, sync_dir, sync_file, fs_walk, filenames_filter
 from bootstrap.configuration import init_config
 
@@ -42,6 +43,16 @@ def prepare_qml_imports(args):
         sync_dir(path, target)
 
 
+def get_all_qt_deps(args, lib):
+    deps = qt_elf_dependencies(args, lib)
+    extra_deps = set()
+
+    for l in deps:
+        l_deps = qt_elf_dependencies(args, l)
+        extra_deps = l_deps - deps
+    pass
+
+
 def prepare_qt_libs(args):
     # first get qt dependencies from qml imports
     qml_export_dir = context.get('android', 'qml_imports')
@@ -62,6 +73,7 @@ def prepare_qt_libs(args):
         raise Exception('target library is not exist in: ' + target)
 
     dependencies.update(qt_elf_dependencies(args, target))
+
     for lib in dependencies:
         source_path = os.path.join(args.qt, 'lib', lib)
         target_path = os.path.join(libs_dir, lib)
@@ -97,44 +109,6 @@ def make(args):
 def make_install(args):
     cmd = ('ninja', 'install')
     run(cmd)
-
-
-def qt_elf_dependencies(args, filepath):
-    libs = read_elf_dependencies(args, filepath)
-    qt_libs = os.path.join(args.qt, 'lib')
-    extra_libs = set()
-    for lib in libs:
-        fullpath = os.path.join(qt_libs, lib)
-        if not os.path.exists(fullpath):
-            extra_libs.add(lib)
-    return libs - extra_libs
-
-
-def read_elf_dependencies(args, filepath):
-    readelf = os.path.join(
-        args.ndk,
-        'toolchains',
-        '{}-{}'.format(args.toolchain_prefix, args.toolchain_version),
-        'prebuilt',
-        args.ndk_host,
-        'bin',
-        '{}-readelf'.format(args.tool_prefix),
-    )
-    cmd = (readelf, '-d', '-W', filepath)
-
-    output = subprocess.check_output(cmd, universal_newlines=True)
-
-    #  0x00000001 (NEEDED)   Shared library: [libQt5Network.so]
-    regexp = re.compile("^.*\(NEEDED\)\s+(Shared library:)\s+\[(?P<library>lib.*\.so)]\s*$")
-    libs = set()
-
-    for line in output.split('\n'):
-        m = regexp.search(line)
-        if m:
-            library = m.groupdict().get('library', None)
-            if library:
-                libs.add(library)
-    return libs
 
 
 def check(path, name):
