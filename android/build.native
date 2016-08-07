@@ -82,7 +82,7 @@ def run_cmake(args):
         '-DCMAKE_INSTALL_PREFIX={}'.format(libdir),
         PROJECT_DIR
     )
-    run(cmd)
+    run(cmd, check_code=True)
 
 
 def make(args):
@@ -90,12 +90,12 @@ def make(args):
         'ninja',
         '-j3',
     )
-    run(cmd)
+    run(cmd, check_code=True)
 
 
 def make_install(args):
     cmd = ('ninja', 'install')
-    run(cmd)
+    run(cmd, check_code=True)
 
 
 def check(path, name):

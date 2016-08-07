@@ -21,7 +21,7 @@ def static_vars(**kwargs):
     return decorate
 
 
-def run(cmd):
+def run(cmd, check_code=False):
     shell = isinstance(cmd, str)
     try:
         log.debug('run: ' + (cmd if shell else ' '.join(cmd)))
@@ -33,7 +33,10 @@ def run(cmd):
         return 0, output
     except subprocess.CalledProcessError as ex:
         log.debug("called proces exception: " + str(ex))
-        return ex.returncode, ex.output
+        if check_code:
+            raise
+        else:
+            return ex.returncode, ex.output
 
 
 def sync_file(source, target):
