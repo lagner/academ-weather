@@ -26,7 +26,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void runQtActivity() {
-        Intent intent = new Intent(this, ru.lagner.android.MainActivity.class);
+        Intent intent = new Intent(this, LocalQtActivity.class);
         startActivity(intent);
     }
 }

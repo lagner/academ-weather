@@ -1,4 +1,4 @@
-package ru.lagner.android;
+package ru.lagner.android.academ_weather;
 
 
 public class CustomEvent {

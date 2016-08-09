@@ -1,4 +1,4 @@
-package ru.lagner.android;
+package ru.lagner.android.academ_weather;
 
 import android.content.Intent;
 import android.content.pm.ComponentInfo;
@@ -16,7 +16,7 @@ public class SplashScreenActivity extends AppCompatActivity {
 
         CppEventBus.init();
 
-        Intent intent = new Intent(this, MainActivity.class);
+        Intent intent = new Intent(this, LocalQtActivity.class);
         startActivity(intent);
         overridePendingTransition(0, 0);
 

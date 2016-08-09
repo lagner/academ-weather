@@ -1,4 +1,4 @@
-package ru.lagner.android;
+package ru.lagner.android.academ_weather;
 
 import android.util.Log;
 import org.greenrobot.eventbus.EventBus;

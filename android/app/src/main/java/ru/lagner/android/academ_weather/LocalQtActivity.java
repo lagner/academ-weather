@@ -1,10 +1,8 @@
-package ru.lagner.android;
+package ru.lagner.android.academ_weather;
 
 import android.animation.Animator;
-import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -13,11 +11,9 @@ import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 import org.qtproject.qt5.android.bindings.QtActivity;
 
-import ru.lagner.android.academ_weather.R;
 
-
-public class MainActivity extends QtActivity {
-    private static final String TAG = "ru.lagner";
+public class LocalQtActivity extends QtActivity {
+    private static final String TAG = "LocalQtActivity";
     private ViewGroup mRootView = null;
     private View mSplash = null;
     private long mOnCreateMills = 0;
@@ -26,23 +22,13 @@ public class MainActivity extends QtActivity {
     public void onCreate(Bundle savedInstanceState) {
         mOnCreateMills = System.currentTimeMillis();
         super.onCreate(savedInstanceState);
-
-        /*
-        ColorDrawable back = new ColorDrawable(getResources().getColor(R.color.white_background));
-
-        mRootView = (ViewGroup) getWindow().getDecorView().getRootView();
-        mSplash = new SurfaceView(this);
-        mSplash.setBackground(back);
-
-        mRootView.addView(mSplash);
-        */
     }
 
     @Override
     public void onStart() {
         super.onStart();
         EventBus.getDefault().register(this);
-        Log.i(TAG, "MainActivity::onStart");
+        Log.i(TAG, "LocalQtActivity::onStart");
     }
 
     @Override
