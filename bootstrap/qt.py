@@ -3,6 +3,8 @@ import re
 import subprocess
 import json
 import bootstrap.utils as utl
+import logging as log
+from xml.etree import ElementTree
 
 _cd = os.path.dirname(os.path.abspath(__file__))
 
@@ -33,17 +35,8 @@ def qmlimportscanner(qt_path, rootQmlDir):
 
 
 @utl.static_vars(pattern=None)
-def read_elf_dependencies(args, filepath):
-    readelf = os.path.join(
-        args.ndk,
-        'toolchains',
-        '{}-{}'.format(args.toolchain_prefix, args.toolchain_version),
-        'prebuilt',
-        args.ndk_host,
-        'bin',
-        '{}-readelf'.format(args.tool_prefix),
-    )
-    cmd = (readelf, '-d', '-W', filepath)
+def read_elf_dependencies(library, readelf="readelf"):
+    cmd = (readelf, '-d', '-W', library)
 
     output = subprocess.check_output(cmd, universal_newlines=True)
 
@@ -63,7 +56,17 @@ def read_elf_dependencies(args, filepath):
 
 
 def qt_elf_dependencies(args, filepath):
-    libs = read_elf_dependencies(args, filepath)
+    readelf = os.path.join(
+        args.ndk,
+        'toolchains',
+        '{}-{}'.format(args.toolchain_prefix, args.toolchain_version),
+        'prebuilt',
+        args.ndk_host,
+        'bin',
+        '{}-readelf'.format(args.tool_prefix),
+    )
+
+    libs = read_elf_dependencies(filepath, readelf=readelf)
     qt_libs = os.path.join(args.qt, 'lib')
     extra_libs = set()
     for lib in libs:
@@ -91,4 +94,33 @@ def get_all_deps(args, lib):
 
     return dependencies
 
-# TODO: add method to get deps from libs collection
+
+def read_dependency_xml(moduleName, config):
+    qt_path = config.get('default', 'qt')
+    xml_path = os.path.join(
+        qt_path, 'lib/{}-android-dependencies.xml'.format(moduleName))
+    if not os.path.exists(xml_path):
+        log.info("module {} do not have xml {}".format(moduleName, xml_path))
+        return
+
+    tree = ElementTree.parse(xml_path)
+    root = tree.getroot()
+    lib_tag = root.find('dependencies/lib')
+
+    name = "" if not lib_tag.attrib else lib_tag.attrib.get('name', "")
+
+    if name != moduleName:
+        raise Exception("moduleName({}) and name from xml({}) do not match".format(
+            moduleName, name))
+
+    deps_tag = lib_tag.find('depends')
+    deps = list()
+
+    for child in deps_tag:
+        info = {
+            "tag": child.tag
+        }
+        info.update(child.attrib)
+        deps.append(info)
+
+    return deps
