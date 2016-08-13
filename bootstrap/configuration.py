@@ -1,6 +1,7 @@
 import os
 import logging as log
 import configparser
+from .qt import ARCH
 
 _cd = os.path.dirname(os.path.abspath(__file__))
 
@@ -9,12 +10,16 @@ def init_config(args):
     conf = __read_default()
     select_ndk(conf, args)
 
-    conf.set('android', 'arch', args.arch)
+    arch = args.arch if hasattr(args, 'arch') and args.qt else ARCH[0]
+    conf.set('android', 'arch', arch)
 
-    if not args.qt:
-        key = 'qt.{}.dir'.format(args.arch)
+    qt = ""
+    if hasattr(args, 'qt') and args.qt:
+        qt = args.qt
+    else:
+        key = 'qt.{}.dir'.format(arch)
         qt = conf.get('local', key, fallback='')
-        conf.set('default', 'qt', qt)
+    conf.set('default', 'qt', qt)
 
     return conf
 
@@ -61,7 +66,7 @@ def __parse_properties(filename='local.properties'):
 
 def select_ndk(conf, args):
     ndk = ""
-    if args.ndk:
+    if hasattr(args, 'ndk') and args.ndk:
         ndk = os.path.abspath(args.ndk)
     else:
         ndk = conf.get('local', 'ndk.dir', fallback="")

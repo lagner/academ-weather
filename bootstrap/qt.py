@@ -55,19 +55,28 @@ def read_elf_dependencies(library, readelf="readelf"):
     return libs
 
 
-def qt_elf_dependencies(args, filepath):
+def qt_elf_dependencies(filepath, config):
+    ndk_path = config.get('android', 'ndk')
+    ndk_host = config.get('android', 'ndk-host')
+    tch_prefix = config.get('android', 'toolchain-prefix')
+    tch_version = config.get('android', 'toolchain-version')
+    tool_prefix = config.get('android', 'tool_prefix')
+
     readelf = os.path.join(
-        args.ndk,
+        ndk_path,
         'toolchains',
-        '{}-{}'.format(args.toolchain_prefix, args.toolchain_version),
+        '{}-{}'.format(tch_prefix, tch_version),
         'prebuilt',
-        args.ndk_host,
+        ndk_host,
         'bin',
-        '{}-readelf'.format(args.tool_prefix),
+        '{}-readelf'.format(tool_prefix),
     )
 
     libs = read_elf_dependencies(filepath, readelf=readelf)
-    qt_libs = os.path.join(args.qt, 'lib')
+
+    qt_dir = config.get('default', 'qt')
+
+    qt_libs = os.path.join(qt_dir, 'lib')
     extra_libs = set()
     for lib in libs:
         fullpath = os.path.join(qt_libs, lib)
