@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+from bootstrap.configuration import init_config
+from bootstrap.qt import qt_elf_dependencies, read_dependency_xml
+from pprint import pprint
+
+_cd = os.path.dirname(os.path.abspath(__file__))
+
+
+def main(args):
+    try:
+        config = init_config(args)
+        project = config.get('default', 'project')
+        lib_path = config.get('android', 'libs_dir')
+        library = os.path.join( _cd, 'android', lib_path, 'lib{}.so'.format(project))
+
+        if not os.path.exists(library):
+            raise Exception("library {} was not found".format(library))
+
+        pprint(config._sections)
+
+        dependencies = qt_elf_dependencies(library, config)
+        print("-" * 20)
+        pprint(dependencies)
+        print("-" * 20)
+        module = next(iter(dependencies))
+        module, ext = os.path.splitext(module)
+        module = module[3:]
+        print('check module: ' + module)
+
+        deps_xml = read_dependency_xml(module, config)
+
+        pprint(deps_xml)
+
+    except Exception as ex:
+        print("Error: " + str(ex))
+        return 1
+    return 0
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    args = parser.parse_args()
+    exit(main(args))
