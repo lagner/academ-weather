@@ -9,6 +9,7 @@ from xml.etree import ElementTree
 _cd = os.path.dirname(os.path.abspath(__file__))
 
 ARCH = ('armeabi-v7a', 'x86', 'mips')
+ANDROID_PLUGIN = 'plugins/platforms/android/libqtforandroid.so'
 
 
 def qmlimportscanner(qt_path, rootQmlDir):
@@ -85,17 +86,19 @@ def qt_elf_dependencies(filepath, config):
     return libs - extra_libs
 
 
-def get_all_deps(args, lib):
+def get_all_deps(lib, config):
     dependencies = set()
-    libs_to_check = qt_elf_dependencies(args, lib)
+    libs_to_check = qt_elf_dependencies(lib, config)
+
+    qt_libs = config.get('default', 'qt')
+    qt_libs = os.path.join(qt_libs, 'lib')
 
     while libs_to_check:
         lib = libs_to_check.pop()
         dependencies.add(lib)
 
-        qt_libs = os.path.join(args.qt, 'lib')
         fullpath = os.path.join(qt_libs, lib)
-        deps = qt_elf_dependencies(args, fullpath)
+        deps = qt_elf_dependencies(fullpath, config)
 
         # libs in dependencies already checked
         extra = deps - dependencies

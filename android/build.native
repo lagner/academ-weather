@@ -6,6 +6,7 @@ import argparse
 import subprocess
 import re
 import logging as log
+from pprint import pprint
 # FIXME: how to know library name?
 PROJECT_NAME = "academ-weather"
 
@@ -14,7 +15,7 @@ PROJECT_DIR = os.path.abspath(os.path.join(ANDROID_DIR, '..'))
 
 sys.path.append(PROJECT_DIR)
 import bootstrap.utils as utl
-from bootstrap.qt import ARCH, qmlimportscanner, qt_elf_dependencies, get_all_deps
+from bootstrap.qt import ARCH, qmlimportscanner, qt_elf_dependencies, get_all_deps, ANDROID_PLUGIN
 from bootstrap.utils import run, pushd, sync_dir, sync_file, fs_walk, filenames_filter
 from bootstrap.configuration import init_config
 
@@ -50,7 +51,9 @@ def prepare_qt_libs(args):
     dependencies = set()
 
     for lib in libs:
-        dependencies.update(get_all_deps(args, lib))
+        deps = get_all_deps(lib, context)
+        log.debug("check lib: " + lib + ", deps: " + str(deps))
+        dependencies.update(deps)
 
     # get all qt dependencies from target lib
     libs_dir = context.get('android', 'libs_dir')
@@ -60,12 +63,20 @@ def prepare_qt_libs(args):
     if not os.path.exists(target):
         raise Exception('target library is not exist in: ' + target)
 
-    dependencies.update(get_all_deps(args, target))
+    dependencies.update(get_all_deps(target, context))
+
+    # get all dependencies of the platform plugin
+    qt_install = context.get('default', 'qt')
+    plugin = os.path.join(qt_install, ANDROID_PLUGIN)
+
+    plugin_deps = get_all_deps(plugin, context)
+    dependencies.update(plugin_deps)
 
     for lib in dependencies:
         source_path = os.path.join(args.qt, 'lib', lib)
         target_path = os.path.join(libs_dir, lib)
         sync_file(source_path, target_path)
+        log.debug('sync file: {:70s} --> {:40s}'.format(source_path, target_path))
 
 
 def run_cmake(args):
