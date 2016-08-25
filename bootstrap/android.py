@@ -20,16 +20,16 @@ class AndroidManifest:
         items = self.root.findall(query, AndroidManifest.XMLNS)
         return bool(items)
 
-    def add_feature(self, feature):
+    def add_feature(self, feature, required=True):
         if self.has_feature(feature):
             log.info("Manifest already has the feature: {}".format(feature))
             return
         item = ElementTree.SubElement(self.root, 'uses-feature', {
-            'android:name': feature
+            'android:name': feature,
+            'android:required': 'true' if required else 'false'
         })
         item.tail = '\n'
         log.debug("feature {} was added".format(feature))
-        log.debug(str(item))
 
     def has_permission(self, perm):
         query = './uses-permission[@android:name="{}"]'.format(perm)
